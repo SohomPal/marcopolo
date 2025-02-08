@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,13 +10,12 @@ import {
   type CloudProvider,
   type VantagePoints,
   type QuorumType,
-} from "../data/cloudReccomendations"
+} from "../data/cloudRecommendations"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, MapPin } from "lucide-react"
 import { WorldMap } from "@/components/WorldMap"
 
 export default function Recommendations() {
-  const [step, setStep] = useState(1)
   const [provider, setProvider] = useState<CloudProvider | "">("")
   const [vantagePoints, setVantagePoints] = useState<VantagePoints | "">("")
   const [quorum, setQuorum] = useState<QuorumType | "">("")
@@ -24,12 +23,15 @@ export default function Recommendations() {
   const [error, setError] = useState<string | null>(null)
   const [expandedMap, setExpandedMap] = useState<number | null>(null)
 
-  const stepRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)]
+  useEffect(() => {
+    setVantagePoints("")
+    setQuorum("")
+    setResults([])
+    setError(null)
+  }, [provider])
 
-  const handleNext = () => {
-    if (step < 3) {
-      setStep(step + 1)
-    } else if (provider && vantagePoints && quorum) {
+  useEffect(() => {
+    if (provider && vantagePoints && quorum) {
       try {
         const providerData = cloudRecommendations[provider]
         if (!providerData) throw new Error(`No data found for provider: ${provider}`)
@@ -37,7 +39,6 @@ export default function Recommendations() {
         const vantagePointsData = providerData[vantagePoints]
         if (!vantagePointsData) throw new Error(`No data found for vantage points: ${vantagePoints}`)
 
-        //@ts-ignore
         const quorumData = vantagePointsData[quorum]
         if (!quorumData) throw new Error(`No data found for quorum type: ${quorum}`)
 
@@ -48,80 +49,11 @@ export default function Recommendations() {
         setError(err instanceof Error ? err.message : "An unexpected error occurred")
         setResults([])
       }
+    } else {
+      setResults([])
+      setError(null)
     }
-  }
-
-  useEffect(() => {
-    if (step > 1 && stepRefs[step - 1].current) {
-      stepRefs[step - 1].current?.scrollIntoView({ behavior: "smooth", block: "start" })
-    }
-  }, [step, stepRefs]) // Added stepRefs to dependencies
-
-  const renderStep = (currentStep: number) => (
-    <Card className="mb-8" ref={stepRefs[currentStep - 1]}>
-      <CardHeader>
-        <CardTitle>Step {currentStep} of 3</CardTitle>
-        <CardDescription>
-          {currentStep === 1 && "Select your cloud provider"}
-          {currentStep === 2 && "Choose the number of vantage points"}
-          {currentStep === 3 && "Select the quorum count"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {currentStep === 1 && (
-          <Select
-            onValueChange={(value: CloudProvider) => {
-              setProvider(value)
-              handleNext()
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select cloud provider" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="google">Google Cloud Platform</SelectItem>
-              <SelectItem value="aws">Amazon Web Services</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-        {currentStep === 2 && (
-          <Select
-            onValueChange={(value: VantagePoints) => {
-              setVantagePoints(value)
-              handleNext()
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select vantage points" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="vps7">7 Vantage Points</SelectItem>
-              <SelectItem value="vps6">6 Vantage Points</SelectItem>
-              <SelectItem value="vps5">5 Vantage Points</SelectItem>
-              <SelectItem value="vps4">4 Vantage Points</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-        {currentStep === 3 && (
-          <Select
-            onValueChange={(value: QuorumType) => {
-              setQuorum(value)
-              handleNext()
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select quorum" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="quorumFull">Full Quorum (N)</SelectItem>
-              <SelectItem value="quorumN-1">N-1 Quorum</SelectItem>
-              <SelectItem value="quorumN-2">N-2 Quorum</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-      </CardContent>
-    </Card>
-  )
+  }, [provider, vantagePoints, quorum])
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -131,7 +63,52 @@ export default function Recommendations() {
       </header>
       <div className="container mx-auto p-4 mt-8">
         <h1 className="text-3xl font-bold mb-8 dark:text-white">Cloud Resilience Recommendations</h1>
-        {[1, 2, 3].map((s) => step >= s && renderStep(s))}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Select Parameters</CardTitle>
+            <CardDescription>Choose your cloud provider, vantage points, and quorum type</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <Select value={provider} onValueChange={(value: CloudProvider) => setProvider(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select cloud provider" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="google">Google Cloud Platform</SelectItem>
+                <SelectItem value="aws">Amazon Web Services</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={vantagePoints}
+              onValueChange={(value: VantagePoints) => setVantagePoints(value)}
+              disabled={!provider}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select vantage points" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vps7">7 Vantage Points</SelectItem>
+                <SelectItem value="vps6">6 Vantage Points</SelectItem>
+                <SelectItem value="vps5">5 Vantage Points</SelectItem>
+                <SelectItem value="vps4">4 Vantage Points</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={quorum}
+              onValueChange={(value: QuorumType) => setQuorum(value)}
+              disabled={!provider || !vantagePoints}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select quorum" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="quorumFull">Full Quorum (N)</SelectItem>
+                <SelectItem value="quorumN-1">N-1 Quorum</SelectItem>
+                <SelectItem value="quorumN-2">N-2 Quorum</SelectItem>
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
         {error && (
           <Alert variant="destructive" className="mb-8">
             <AlertCircle className="h-4 w-4" />
